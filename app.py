@@ -5,6 +5,7 @@ import os
 import html
 import json
 import google.generativeai as genai
+import plotly.express as px
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,10 +24,111 @@ def get_gemini_api_key():
 
 # Page configuration
 st.set_page_config(
-    page_title="X/Twitter Bookmarks Dashboard",
-    page_icon="🔖",
+    page_title="Lucas X Bookmarks",
     layout="wide"
 )
+
+# Custom CSS for Apple/iOS inspired minimalist theme and hiding Streamlit defaults
+custom_css = """
+<style>
+/* Clean typography & background */
+html, body, [class*="css"], .stApp {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    background-color: #F5F5F7 !important;
+    color: #1D1D1F !important;
+}
+
+/* Keep header transparent so sidebar toggle button is visible */
+header[data-testid="stHeader"] {
+    background-color: transparent !important;
+}
+
+/* Hide deploy button and app options hamburger menu but keep expand button */
+.stDeployButton {display: none !important;}
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+
+/* Sidebar styling */
+section[data-testid="stSidebar"] {
+    background-color: #FFFFFF !important;
+    border-right: 1px solid #E8E8ED;
+}
+section[data-testid="stSidebar"] h1, 
+section[data-testid="stSidebar"] h2, 
+section[data-testid="stSidebar"] h3 {
+    color: #1D1D1F !important;
+}
+
+/* Style select filter components */
+.stMultiSelect div[data-baseweb="select"] {
+    border-radius: 10px !important;
+    border: 1px solid #E8E8ED !important;
+    background-color: #FFFFFF !important;
+}
+
+/* Dropdown menu styling for a finer, rounded Apple look with borders */
+div[data-baseweb="menu"] {
+    border-radius: 12px !important;
+    border: 1px solid #D2D2D7 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+    background-color: #FFFFFF !important;
+}
+
+/* Dropdown menu list items with visible separators */
+div[data-baseweb="menu"] li {
+    border-bottom: 1px solid #E8E8ED !important;
+    padding: 10px 16px !important;
+    font-size: 14px !important;
+    color: #1D1D1F !important;
+}
+
+/* Remove separator on last item */
+div[data-baseweb="menu"] li:last-child {
+    border-bottom: none !important;
+}
+
+/* Hover state for dropdown items */
+div[data-baseweb="menu"] li:hover {
+    background-color: #F5F5F7 !important;
+}
+
+/* Clean cards for tweets */
+div[data-testid="stContainer"] {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E8E8ED !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+    margin-bottom: 16px !important;
+}
+
+/* Custom rounded corners for images */
+div[data-testid="stContainer"] img {
+    border-radius: 50% !important;
+}
+
+/* Link customization */
+a {
+    color: #0066CC !important;
+    text-decoration: none !important;
+}
+a:hover {
+    text-decoration: underline !important;
+}
+
+/* Tab styling override */
+button[data-baseweb="tab"] {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    color: #86868B !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #1D1D1F !important;
+    border-bottom-color: #1D1D1F !important;
+}
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
 
 # Constants
 ORIGINAL_CSV = "bookmarks.csv"
@@ -242,9 +344,8 @@ def load_classified_data(file_path):
         
     return df
 
-# Main Title & Subtitle
-st.title("🔖 X/Twitter Bookmarks Dashboard")
-st.markdown("A local, highly responsive search and filter dashboard for your exported X bookmarks.")
+# Main Title
+st.title("Lucas X Bookmarks")
 
 # Check if pre-classified file exists
 df = None
@@ -253,9 +354,9 @@ if os.path.exists(CLASSIFIED_CSV):
 else:
     # If not classified yet, we need to run classification
     if not os.path.exists(ORIGINAL_CSV):
-        st.error(f"❌ **`{ORIGINAL_CSV}` not found.**")
-        st.warning("Please ensure there is a `bookmarks.csv` file in the project directory containing your bookmarks data.")
-        st.info("The CSV should ideally contain columns like `name`, `screen_name`, `full_text`, `tweeted_at`, and `tweet_url`.")
+        st.error("Original CSV not found.")
+        st.warning("Please ensure there is a bookmarks.csv file in the project directory containing your bookmarks data.")
+        st.info("The CSV should ideally contain columns like name, screen_name, full_text, tweeted_at, and tweet_url.")
     else:
         # Read the raw data
         try:
@@ -265,7 +366,7 @@ else:
             st.error(f"Error loading original bookmarks: {e}")
             
         if raw_df.empty:
-            st.warning("⚠️ **The `bookmarks.csv` file is empty.**")
+            st.warning("The bookmarks.csv file is empty.")
             st.info("Please verify the contents of the CSV file and try again.")
         else:
             # Map raw fields to standardized fields
@@ -274,10 +375,10 @@ else:
             # Check API key
             api_key = get_gemini_api_key()
             if not api_key:
-                st.error("🔑 **`GEMINI_API_KEY` not found in secrets or `.env` file!**")
+                st.error("GEMINI_API_KEY not found in secrets or .env file!")
                 st.info("AI Classification is required to generate categories. Please:")
                 st.markdown("""
-                1. Create a `.env` file in the root directory (or configure secrets in Streamlit Cloud).
+                1. Create a .env file in the root directory (or configure secrets in Streamlit Cloud).
                 2. Add your Gemini API key:
                    ```env
                    GEMINI_API_KEY=your_real_api_key
@@ -287,20 +388,20 @@ else:
                 st.stop()
                 
             # Perform classification with Streamlit spinner
-            with st.spinner("🤖 Classifying bookmarks using Gemini 3.6 Flash..."):
+            with st.spinner("Classifying bookmarks using Gemini 3.6 Flash..."):
                 try:
                     classified_df = classify_bookmarks_with_gemini(standardized_df)
                     classified_df.to_csv(CLASSIFIED_CSV, index=False)
-                    st.success(f"🎉 Successfully classified bookmarks and saved to `{CLASSIFIED_CSV}`!")
+                    st.success("Successfully classified bookmarks and saved to classified_bookmarks.csv!")
                     # Load the newly created file using the cached function
                     df = load_classified_data(CLASSIFIED_CSV)
                 except Exception as e:
-                    st.error(f"❌ **AI Classification failed**: {e}")
+                    st.error(f"AI Classification failed: {e}")
                     st.stop()
 
 if df is not None and not df.empty:
     # Sidebar Filters Header
-    st.sidebar.header("🔍 Filters")
+    st.sidebar.header("Filters")
 
     # Author multi-select filter
     unique_authors = sorted([auth for auth in df['Author'].unique() if auth != 'Unknown'])
@@ -309,7 +410,7 @@ if df is not None and not df.empty:
         unique_authors.append('Unknown')
         
     selected_authors = st.sidebar.multiselect(
-        "👤 Filter by Author",
+        "Filter by Author",
         options=unique_authors,
         placeholder="Choose authors..."
     )
@@ -317,14 +418,14 @@ if df is not None and not df.empty:
     # Category multi-select filter
     unique_categories = sorted(df['Category'].unique())
     selected_categories = st.sidebar.multiselect(
-        "🏷️ Filter by Category",
+        "Filter by Category",
         options=unique_categories,
         placeholder="Choose categories..."
     )
 
     # Keyword search input
     search_query = st.sidebar.text_input(
-        "📝 Keyword Search",
+        "Keyword Search",
         placeholder="Search text..."
     )
 
@@ -348,52 +449,93 @@ if df is not None and not df.empty:
 
     st.markdown("---")
 
-    # Display Filtered Bookmarks List
-    if filtered_df.empty:
-        st.info("ℹ️ No bookmarks match the selected filters. Try broadening your criteria.")
-    else:
-        # Display each bookmark
-        for idx, row in filtered_df.iterrows():
-            with st.container(border=True):
-                # Setup avatar and content columns
-                avatar_url = row['Avatar']
-                # Standard placeholder if no avatar URL is provided
-                if not avatar_url or str(avatar_url).strip() == '':
-                    avatar_url = "https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"
-                
-                col_img, col_content = st.columns([1, 15])
-                
-                with col_img:
-                    st.image(avatar_url, width=48)
-                
-                with col_content:
-                    # Header: Author (@Username) · Date
-                    author_name = row['Author']
-                    username = row['Username']
-                    username_str = f" (@{username})" if username else ""
+    # Implement Tab-based navigation so user intentionally chooses the view
+    tab_list, tab_analytics = st.tabs(["Bookmarks", "Analytics"])
+
+    with tab_list:
+        # Display Filtered Bookmarks List
+        if filtered_df.empty:
+            st.info("No bookmarks match the selected filters. Try broadening your criteria.")
+        else:
+            # Display each bookmark
+            for idx, row in filtered_df.iterrows():
+                with st.container(border=True):
+                    # Setup avatar and content columns
+                    avatar_url = row['Avatar']
+                    # Standard placeholder if no avatar URL is provided
+                    if not avatar_url or str(avatar_url).strip() == '':
+                        avatar_url = "https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"
                     
-                    if pd.notna(row['Date']):
-                        date_str = row['Date'].strftime('%b %d, %Y · %H:%M')
-                    else:
-                        date_str = "Unknown Date"
+                    col_img, col_content = st.columns([1, 15])
+                    
+                    with col_img:
+                        st.image(avatar_url, width=48)
+                    
+                    with col_content:
+                        # Header: Author (@Username) · Date
+                        author_name = row['Author']
+                        username = row['Username']
+                        username_str = f" (@{username})" if username else ""
                         
-                    st.markdown(f"**{author_name}**{username_str} · *{date_str}*")
-                    
-                    # Category tag/badge
-                    category_colors = {
-                        'AI': 'blue',
-                        'Design': 'orange',
-                        'Tech': 'green',
-                        'Programming': 'rainbow',
-                        'Finance': 'red',
-                        'Humor': 'violet'
-                    }
-                    badge_color = category_colors.get(row['Category'], 'grey')
-                    st.markdown(f":{badge_color}[**{row['Category']}**]")
-                    
-                    # Text Content
-                    st.markdown(row['Text'])
-                    
-                    # Spacing and View URL button
-                    if row['URL']:
-                        st.markdown(f"[🔗 View original tweet on X]({row['URL']})")
+                        if pd.notna(row['Date']):
+                            date_str = row['Date'].strftime('%b %d, %Y · %H:%M')
+                        else:
+                            date_str = "Unknown Date"
+                            
+                        st.markdown(f"**{author_name}**{username_str} · *{date_str}*")
+                        
+                        # Category tag/badge using CSS styled monochrome layout
+                        category_name = str(row['Category']).upper()
+                        st.markdown(
+                            f"<span style='background-color: #E8E8ED; color: #1D1D1F; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.5px;'>{category_name}</span>", 
+                            unsafe_allow_html=True
+                        )
+                        
+                        # Spacer after badge since HTML element won't force markdown newline layout nicely
+                        st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
+                        
+                        # Text Content
+                        st.markdown(row['Text'])
+                        
+                        # Spacing and View URL button
+                        if row['URL']:
+                            st.markdown(f"[View original tweet on X]({row['URL']})")
+
+    with tab_analytics:
+        st.subheader("Category Distribution")
+        if df.empty:
+            st.warning("No data available to display analytics.")
+        else:
+            # Group by category and count using the loaded data (df)
+            category_counts = df['Category'].value_counts().reset_index()
+            category_counts.columns = ['Category', 'Count']
+            
+            # Create Plotly pie chart with shades of gray/silver/black
+            grayscale_colors = ["#1D1D1F", "#3A3A3C", "#636366", "#8E8E93", "#AEAEB2", "#C7C7CC", "#D1D1D6", "#E5E5EA"]
+            
+            fig = px.pie(
+                category_counts,
+                names='Category',
+                values='Count',
+                title='All Classified Bookmarks by Category',
+                hole=0.4,  # Modern Donut chart look
+                color_discrete_sequence=grayscale_colors
+            )
+            
+            # Clean layout styling
+            fig.update_traces(
+                textposition='inside', 
+                textinfo='percent+label',
+                marker=dict(line=dict(color='#FFFFFF', width=2))
+            )
+            
+            fig.update_layout(
+                showlegend=True,
+                margin=dict(t=50, b=20, l=20, r=20),
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='-apple-system, BlinkMacSystemFont, sans-serif', color='#1D1D1F')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
